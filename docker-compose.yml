@@ -24,7 +24,7 @@ services:
     image: mongo:7
     container_name: category-mongo
     ports:
-      - "27017:27017"
+      - "${MONGO_PORT:-27017}:27017"
     volumes:
       - mongo-data:/data/db
     healthcheck:
@@ -40,7 +40,7 @@ services:
     image: redis:7-alpine
     container_name: category-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
