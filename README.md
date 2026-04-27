@@ -1,75 +1,54 @@
 # Category Management Service
 
-A backend service for managing hierarchical categories with unlimited nesting depth. Built with Node.js, TypeScript, MongoDB, GraphQL, and Redis.
+A backend service for managing hierarchical product categories with unlimited nesting, a GraphQL API, and Redis caching.
 
 ---
 
 ## Table of Contents
 
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Prerequisites](#prerequisites)
-- [Project Structure](#project-structure)
-- [Environment Variables](#environment-variables)
-- [Installation](#installation)
-- [Running the Service](#running-the-service)
-  - [Local Development](#local-development)
-  - [Using Docker Compose](#using-docker-compose)
-- [GraphQL API](#graphql-api)
-  - [Queries](#queries)
-  - [Mutations](#mutations)
-  - [Example Operations](#example-operations)
-- [Data Model](#data-model)
-- [Caching Strategy](#caching-strategy)
-- [Category Deactivation Behavior](#category-deactivation-behavior)
+1. [Technology Stack](#technology-stack)
+2. [Features](#features)
+3. [Project Structure](#project-structure)
+4. [Quick Start with Docker](#quick-start-with-docker)
+5. [Local Development Setup](#local-development-setup)
+6. [Environment Variables](#environment-variables)
+7. [GraphQL API](#graphql-api)
+   - [Endpoint](#endpoint)
+   - [Schema](#schema)
+   - [Queries](#queries)
+   - [Mutations](#mutations)
+8. [Running Tests](#running-tests)
+9. [npm Scripts](#npm-scripts)
+
+---
+
+## Technology Stack
+
+| Technology | Version | Purpose |
+|---|---|---|
+| Node.js | 20+ | Runtime |
+| TypeScript | 6 | Language |
+| Express.js | 5 | HTTP server |
+| Apollo Server | 5 | GraphQL server |
+| GraphQL | 16 | Query language |
+| MongoDB | 7 | Primary database |
+| Mongoose | 9 | MongoDB ODM |
+| Redis | 7 | Caching layer |
+| ioredis | 5 | Redis client |
+| Docker + Compose | latest | Containerisation |
+| Jest + ts-jest | 30 | Testing framework |
 
 ---
 
 ## Features
 
-- **Unlimited nesting** — categories can have unlimited levels of child categories (e.g. `Electronics > Accessories > Wearable > Smart Watch`)
-- **Single parent constraint** — each category has at most one parent
-- **Unique names** — all category names are globally unique
-- **Full ancestry in responses** — every query returns the full ancestor chain (parent → grandparent → ... → root)
-- **Cascade deactivation** — deactivating a category automatically deactivates all descendant categories
-- **Redis caching** — frequently queried categories are served from cache; cache is invalidated on any write
-- **GraphQL API** — full CRUD via a typed GraphQL schema
-
----
-
-## Tech Stack
-
-| Layer        | Technology              |
-|--------------|-------------------------|
-| Runtime      | Node.js 20+             |
-| Language     | TypeScript 5            |
-| Framework    | Express.js 5            |
-| API          | GraphQL (Apollo Server) |
-| Database     | MongoDB 7 (Mongoose)    |
-| Cache        | Redis 7                 |
-| Process mgr  | ts-node-dev (dev)       |
-
----
-
-## Prerequisites
-
-Make sure the following are installed on your machine:
-
-- [Node.js](https://nodejs.org/) v20 or higher
-- [npm](https://www.npmjs.com/) v10 or higher
-- [MongoDB](https://www.mongodb.com/try/download/community) v7 (local) **or** a MongoDB Atlas connection string
-- [Redis](https://redis.io/download/) v7 (local) **or** a Redis Cloud URL
-- [Docker](https://www.docker.com/) + [Docker Compose](https://docs.docker.com/compose/) _(optional, for containerised setup)_
-
-Verify your versions:
-
-```bash
-node -v      # v20.x.x
-npm -v       # 10.x.x
-mongod --version
-redis-server --version
-docker --version
-```
+- **Unlimited category nesting** — categories can be nested to any depth (e.g. `Electronics > Accessories > Wearable > Smart Watch`)
+- **Single parent per category** — each category has at most one parent
+- **Unique category names** — enforced at the database level
+- **Full ancestor chain** — every query returns the complete path from root to the category's parent
+- **Cascade deactivation** — deactivating a category deactivates all its descendants automatically in a single database operation
+- **Redis caching** — reads are served from cache; cache is invalidated on every write
+- **GraphQL API** — full CRUD exposed via a typed GraphQL schema
 
 ---
 
@@ -79,46 +58,176 @@ docker --version
 category-management-service/
 ├── src/
 │   ├── config/
-│   │   ├── db.ts              # MongoDB connection
-│   │   └── redis.ts           # Redis client
+│   │   ├── db.ts                 MongoDB connection
+│   │   └── redis.ts              Redis client
 │   ├── models/
-│   │   └── Category.ts        # Mongoose schema & model
-│   ├── graphql/
-│   │   ├── schema.ts          # Type definitions (SDL)
-│   │   ├── resolvers/
-│   │   │   ├── query.ts       # Query resolvers
-│   │   │   └── mutation.ts    # Mutation resolvers
-│   │   └── index.ts           # Apollo Server setup
-│   ├── services/
-│   │   └── category.service.ts  # Business logic
+│   │   └── Category.ts           Mongoose schema (ancestors array pattern)
 │   ├── cache/
-│   │   └── category.cache.ts  # Redis cache helpers
-│   └── server.ts              # Express + Apollo entry point
+│   │   └── category.cache.ts     Redis get / set / invalidate helpers
+│   ├── services/
+│   │   └── category.service.ts   All business logic
+│   ├── graphql/
+│   │   ├── typeDefs.ts           GraphQL schema (SDL)
+│   │   └── resolvers.ts          Query and Mutation resolvers
+│   └── server.ts                 Express + Apollo Server entry point
+├── tests/
+│   ├── helpers/db.ts             MongoDB memory server test utilities
+│   ├── unit/
+│   │   └── category.service.test.ts   30 unit tests for the service layer
+│   └── integration/
+│       └── graphql.test.ts            14 integration tests for the GraphQL API
 ├── .env.example
-├── .gitignore
-├── docker-compose.yml
+├── .dockerignore
+├── Dockerfile                    Multi-stage build (builder + production)
+├── docker-compose.yml            Full stack: app + MongoDB + Redis
+├── jest.config.js
 ├── tsconfig.json
-├── package.json
-└── README.md
+└── package.json
+```
+
+---
+
+## Quick Start with Docker
+
+This is the easiest way to run the full stack. You only need Docker and Docker Compose installed.
+
+**Step 1 — Clone the repository**
+
+```bash
+git clone <your-repo-url>
+cd category-management-service
+```
+
+**Step 2 — Create the environment file**
+
+```bash
+cp .env.example .env
+```
+
+**Step 3 — Build and start all services**
+
+```bash
+docker-compose up --build
+```
+
+This starts three containers:
+
+| Container | Service | Port |
+|---|---|---|
+| `category-api` | GraphQL API | `4000` |
+| `category-mongo` | MongoDB 7 | `27017` |
+| `category-redis` | Redis 7 | `6379` |
+
+The app waits for both MongoDB and Redis to pass their healthchecks before starting.
+
+**Step 4 — Open the GraphQL playground**
+
+```
+http://localhost:4000/graphql
+```
+
+**Step 5 — Check the health endpoint**
+
+```bash
+curl http://localhost:4000/health
+# {"status":"ok"}
+```
+
+**Stop all services**
+
+```bash
+docker-compose down
+```
+
+**Stop and remove all data volumes**
+
+```bash
+docker-compose down -v
+```
+
+**Run in background (detached)**
+
+```bash
+docker-compose up --build -d
+docker-compose logs -f app    # tail app logs
+```
+
+---
+
+## Local Development Setup
+
+Use this if you want hot-reload during development without Docker.
+
+### Prerequisites
+
+- Node.js v20 or higher
+- MongoDB 7 running locally
+- Redis 7 running locally
+
+```bash
+node -v        # v20.x.x or higher
+mongod --version
+redis-cli ping # PONG
+```
+
+### Steps
+
+**Step 1 — Install dependencies**
+
+```bash
+npm install
+```
+
+**Step 2 — Create the environment file**
+
+```bash
+cp .env.example .env
+```
+
+**Step 3 — Start MongoDB and Redis**
+
+```bash
+# macOS (Homebrew)
+brew services start mongodb-community
+brew services start redis
+
+# Ubuntu / Debian
+sudo systemctl start mongod
+sudo systemctl start redis-server
+
+# Windows
+net start MongoDB
+redis-server
+```
+
+**Step 4 — Start the dev server (with hot reload)**
+
+```bash
+npm run dev
+```
+
+The server starts at `http://localhost:4000/graphql`.
+
+**Build for production**
+
+```bash
+npm run build    # compiles TypeScript → dist/
+npm start        # runs dist/server.js
 ```
 
 ---
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill in your values:
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `4000` | Port the HTTP server listens on |
+| `MONGODB_URI` | `mongodb://localhost:27017/categories` | MongoDB connection string |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
+| `REDIS_TTL` | `3600` | Cache TTL in seconds (1 hour) |
+| `NODE_ENV` | `development` | `development` or `production` |
 
-```bash
-cp .env.example .env
-```
-
-| Variable          | Default                          | Description                              |
-|-------------------|----------------------------------|------------------------------------------|
-| `PORT`            | `4000`                           | HTTP port the server listens on          |
-| `MONGODB_URI`     | `mongodb://localhost:27017/categories` | MongoDB connection string           |
-| `REDIS_URL`       | `redis://localhost:6379`         | Redis connection URL                     |
-| `REDIS_TTL`       | `3600`                           | Cache TTL in seconds (default 1 hour)    |
-| `NODE_ENV`        | `development`                    | `development` or `production`            |
+> **Note:** When running with `docker-compose`, `MONGODB_URI` and `REDIS_URL` are automatically overridden to point to the container service names (`mongo`, `redis`). You do not need to change `.env` for Docker.
 
 `.env.example`:
 
@@ -132,163 +241,148 @@ NODE_ENV=development
 
 ---
 
-## Installation
-
-### 1. Clone the repository
-
-```bash
-git clone <your-repo-url>
-cd category-management-service
-```
-
-### 2. Install dependencies
-
-```bash
-npm install
-```
-
-### 3. Configure environment
-
-```bash
-cp .env.example .env
-# Edit .env with your MongoDB URI and Redis URL
-```
-
----
-
-## Running the Service
-
-### Local Development
-
-Requires MongoDB and Redis running locally (see Prerequisites).
-
-**Start MongoDB** (if running locally):
-
-```bash
-# macOS (Homebrew)
-brew services start mongodb-community
-
-# Ubuntu/Debian
-sudo systemctl start mongod
-
-# Windows
-net start MongoDB
-```
-
-**Start Redis** (if running locally):
-
-```bash
-# macOS (Homebrew)
-brew services start redis
-
-# Ubuntu/Debian
-sudo systemctl start redis-server
-
-# Windows
-redis-server
-```
-
-**Start the dev server** (with hot reload):
-
-```bash
-npm run dev
-```
-
-**Build and run for production**:
-
-```bash
-npm run build
-npm start
-```
-
-The GraphQL playground will be available at:
-
-```
-http://localhost:4000/graphql
-```
-
----
-
-### Using Docker Compose
-
-The easiest way to run the full stack (app + MongoDB + Redis) without installing anything locally.
-
-#### Step 1 — Copy environment file
-
-```bash
-cp .env.example .env
-```
-
-#### Step 2 — Build and start all services
-
-```bash
-docker-compose up --build
-```
-
-This starts three containers:
-- `category-api` — the GraphQL API on port `4000`
-- `category-mongo` — MongoDB 7 on port `27017` (persisted in `mongo-data` volume)
-- `category-redis` — Redis 7 on port `6379` (persisted in `redis-data` volume)
-
-The app container waits for MongoDB and Redis to pass their healthchecks before starting.
-
-#### Step 3 — Verify it's running
-
-```bash
-curl http://localhost:4000/graphql
-# Should return the Apollo GraphQL landing page
-```
-
-#### Step 4 — Run in the background (detached mode)
-
-```bash
-docker-compose up --build -d
-docker-compose logs -f app   # tail app logs
-```
-
-#### Step 5 — Stop all services
-
-```bash
-docker-compose down
-```
-
-To also remove volumes (wipes all database data):
-
-```bash
-docker-compose down -v
-```
-
----
-
 ## GraphQL API
 
-Access the interactive GraphQL playground at `http://localhost:4000/graphql`.
+### Endpoint
+
+```
+POST http://localhost:4000/graphql
+```
+
+An interactive playground (Apollo Sandbox) is available at the same URL when opened in a browser.
+
+---
+
+### Schema
+
+```graphql
+type Category {
+  id: ID!
+  name: String!
+  parent: Category           # direct parent, null if root
+  ancestors: [Category!]!    # ordered list from root → direct parent
+  children: [Category!]!     # immediate child categories
+  isActive: Boolean!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type Query {
+  categories(isActive: Boolean): [Category!]!
+  category(id: ID!): Category
+  categoryByName(name: String!): Category
+}
+
+type Mutation {
+  createCategory(name: String!, parentId: ID): Category!
+  updateCategory(id: ID!, name: String, parentId: ID): Category!
+  deactivateCategory(id: ID!): Category!
+  activateCategory(id: ID!): Category!
+  deleteCategory(id: ID!): Boolean!
+}
+```
+
+---
 
 ### Queries
 
-| Operation          | Description                                                    |
-|--------------------|----------------------------------------------------------------|
-| `categories`       | List all categories (paginated, filterable by `isActive`)      |
-| `category(id)`     | Get a single category by ID, includes full ancestor chain      |
-| `categoryByName`   | Find a category by exact name, includes full ancestor chain    |
+#### List all categories
+
+```graphql
+query {
+  categories {
+    id
+    name
+    isActive
+    parent {
+      id
+      name
+    }
+  }
+}
+```
+
+#### List only active categories
+
+```graphql
+query {
+  categories(isActive: true) {
+    id
+    name
+    parent { name }
+  }
+}
+```
+
+#### Get a category by ID (with full ancestor chain)
+
+Replace `<id>` with a real MongoDB ObjectId returned from a `createCategory` or `categories` query.
+
+```graphql
+query {
+  category(id: "68ee52083227920879d3b27d") {
+    id
+    name
+    isActive
+    parent {
+      id
+      name
+    }
+    ancestors {
+      id
+      name
+    }
+    children {
+      id
+      name
+    }
+  }
+}
+```
+
+Example response:
+
+```json
+{
+  "data": {
+    "category": {
+      "id": "68ee52213227920879d3b280",
+      "name": "Smart Watch",
+      "isActive": true,
+      "parent": { "id": "68ee52213227920879d3b27f", "name": "Wearable Accessories" },
+      "ancestors": [
+        { "id": "68ee52083227920879d3b27d", "name": "Electronics" },
+        { "id": "68ee52213227920879d3b27e", "name": "Accessories" },
+        { "id": "68ee52213227920879d3b27f", "name": "Wearable Accessories" }
+      ],
+      "children": []
+    }
+  }
+}
+```
+
+#### Find a category by name
+
+```graphql
+query {
+  categoryByName(name: "Smart Watch") {
+    id
+    name
+    parent { name }
+    ancestors { name }
+  }
+}
+```
+
+---
 
 ### Mutations
-
-| Operation            | Description                                                  |
-|----------------------|--------------------------------------------------------------|
-| `createCategory`     | Create a new category (optionally under a parent)            |
-| `updateCategory`     | Update name or parent of an existing category                |
-| `deactivateCategory` | Deactivate a category and all its descendants recursively    |
-| `activateCategory`   | Re-activate a specific category (children stay deactivated)  |
-| `deleteCategory`     | Hard-delete a category (only if it has no children)          |
-
-### Example Operations
 
 #### Create a root category
 
 ```graphql
 mutation {
-  createCategory(input: { name: "Electronics" }) {
+  createCategory(name: "Electronics") {
     id
     name
     isActive
@@ -300,75 +394,50 @@ mutation {
 
 ```graphql
 mutation {
-  createCategory(input: {
-    name: "Accessories"
-    parentId: "<Electronics_id>"
-  }) {
+  createCategory(name: "Accessories", parentId: "68ee52083227920879d3b27d") {
     id
     name
-    parent {
-      id
-      name
-    }
+    parent { name }
+    ancestors { name }
   }
 }
 ```
 
-#### Get a category with its full ancestor path
+#### Build a 4-level hierarchy
 
 ```graphql
-query {
-  category(id: "<Smart_Watch_id>") {
-    id
-    name
-    isActive
-    ancestors {
-      id
-      name
-    }
-    parent {
-      id
-      name
-    }
-  }
-}
+# Step 1 — root
+mutation A { createCategory(name: "Electronics") { id } }
+
+# Step 2
+mutation B { createCategory(name: "Accessories", parentId: "<electronics_id>") { id } }
+
+# Step 3
+mutation C { createCategory(name: "Wearable Accessories", parentId: "<accessories_id>") { id } }
+
+# Step 4
+mutation D { createCategory(name: "Smart Watch", parentId: "<wearable_id>") { id } }
 ```
 
-Response:
-
-```json
-{
-  "data": {
-    "category": {
-      "id": "...",
-      "name": "Smart Watch",
-      "isActive": true,
-      "ancestors": [
-        { "id": "...", "name": "Electronics" },
-        { "id": "...", "name": "Accessories" },
-        { "id": "...", "name": "Wearable Accessories" }
-      ],
-      "parent": {
-        "id": "...",
-        "name": "Wearable Accessories"
-      }
-    }
-  }
-}
-```
-
-#### List all active categories
+#### Update a category name
 
 ```graphql
-query {
-  categories(filter: { isActive: true }) {
+mutation {
+  updateCategory(id: "68ee52083227920879d3b27d", name: "Consumer Electronics") {
     id
     name
-    parent {
-      id
-      name
-    }
-    isActive
+  }
+}
+```
+
+#### Move a category to a new parent
+
+```graphql
+mutation {
+  updateCategory(id: "68ee52083227920879d3b27d", parentId: "68ee52213227920879d3b27e") {
+    id
+    name
+    ancestors { name }
   }
 }
 ```
@@ -377,98 +446,86 @@ query {
 
 ```graphql
 mutation {
-  deactivateCategory(id: "<Electronics_id>") {
+  deactivateCategory(id: "68ee52083227920879d3b27d") {
     id
     name
     isActive
-    # All child categories are now also inactive
   }
 }
 ```
 
----
+All descendant categories are also set to `isActive: false` in a single database operation.
 
-## Data Model
+#### Activate a category
 
-Each category document in MongoDB:
-
-```ts
-{
-  _id:        ObjectId,       // auto-generated
-  name:       string,         // unique, required
-  parent:     ObjectId | null, // reference to parent Category, null = root
-  ancestors:  ObjectId[],     // ordered list from root → direct parent
-  isActive:   boolean,        // default: true
-  createdAt:  Date,
-  updatedAt:  Date
+```graphql
+mutation {
+  activateCategory(id: "68ee52083227920879d3b27d") {
+    id
+    name
+    isActive
+  }
 }
 ```
 
-**`ancestors` array** stores the full path from the root to the direct parent. This enables:
-- O(1) ancestor lookup (no recursive DB queries)
-- Efficient subtree queries: `{ ancestors: categoryId }` finds all descendants
+> Child categories are **not** automatically re-activated. Each must be activated individually.
 
-Example for `Smart Watch` under `Electronics > Accessories > Wearable Accessories`:
+#### Delete a category
 
-```json
-{
-  "name": "Smart Watch",
-  "parent": "<Wearable_Accessories_id>",
-  "ancestors": [
-    "<Electronics_id>",
-    "<Accessories_id>",
-    "<Wearable_Accessories_id>"
-  ]
+Only allowed when the category has no children.
+
+```graphql
+mutation {
+  deleteCategory(id: "68ee52083227920879d3b27d")
 }
 ```
 
----
+#### Using curl
 
-## Caching Strategy
+```bash
+# Create a category
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "mutation { createCategory(name: \"Electronics\") { id name } }"}'
 
-Redis is used to cache category reads and reduce MongoDB load.
-
-| Cache Key Pattern              | Content                            | Invalidated when              |
-|--------------------------------|------------------------------------|-------------------------------|
-| `category:<id>`                | Single category document           | That category is updated      |
-| `categories:all`               | Full category list                 | Any category is created/updated/deleted |
-| `category:name:<name>`         | Lookup by name                     | That category is renamed      |
-
-**TTL** is configured via `REDIS_TTL` (default: 1 hour).
-
-**Cache invalidation rules:**
-- `createCategory` → clears `categories:all`
-- `updateCategory` → clears `category:<id>`, `category:name:<old_name>`, `categories:all`
-- `deactivateCategory` / `activateCategory` → clears the category and all affected descendants from cache
-- `deleteCategory` → clears `category:<id>`, `categories:all`
-
----
-
-## Category Deactivation Behavior
-
-When a category is deactivated:
-
-1. The target category's `isActive` is set to `false`.
-2. All documents where `ancestors` array contains the target category's ID are also set to `isActive: false` in a single bulk update:
-
-```ts
-await Category.updateMany(
-  { ancestors: categoryId },
-  { $set: { isActive: false } }
-);
+# List all categories
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "query { categories { id name isActive } }"}'
 ```
 
-This is a single atomic MongoDB operation regardless of nesting depth — no recursion needed.
+---
 
-Re-activating a category does **not** automatically re-activate its children; each child must be re-activated individually to avoid unintentionally restoring a subtree the user had previously deactivated.
+## Running Tests
+
+Tests use an in-memory MongoDB (no external database required) and a mocked Redis client, so they run with no infrastructure dependencies.
+
+```bash
+npm test
+```
+
+Expected output:
+
+```
+Test Suites: 2 passed, 2 total
+Tests:       44 passed, 44 total
+Time:        ~4s
+```
+
+**Test coverage:**
+
+| Suite | File | Tests |
+|---|---|---|
+| Unit | `tests/unit/category.service.test.ts` | 30 |
+| Integration | `tests/integration/graphql.test.ts` | 14 |
 
 ---
 
-## Scripts
+## npm Scripts
 
-| Command         | Description                        |
-|-----------------|------------------------------------|
-| `npm run dev`   | Start dev server with hot reload   |
-| `npm run build` | Compile TypeScript to `dist/`      |
-| `npm start`     | Run compiled production build      |
-| `npm test`      | Run test suite                     |
+| Command | Description |
+|---|---|
+| `npm run dev` | Start dev server with hot reload (`ts-node-dev`) |
+| `npm run build` | Compile TypeScript to `dist/` |
+| `npm start` | Run the compiled production build |
+| `npm test` | Run the full test suite (44 tests) |
