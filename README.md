@@ -107,7 +107,8 @@ cp .env.example .env
 **Step 3 — Build and start all services**
 
 ```bash
-docker-compose up --build
+docker-compose build
+docker-compose up -d
 ```
 
 This starts three containers:
@@ -137,19 +138,6 @@ curl http://localhost:4000/health
 
 ```bash
 docker-compose down
-```
-
-**Stop and remove all data volumes**
-
-```bash
-docker-compose down -v
-```
-
-**Run in background (detached)**
-
-```bash
-docker-compose up --build -d
-docker-compose logs -f app    # tail app logs
 ```
 
 ---
