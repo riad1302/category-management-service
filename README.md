@@ -94,7 +94,7 @@ This is the easiest way to run the full stack. You only need Docker and Docker C
 **Step 1 — Clone the repository**
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/riad1302/category-management-service.git
 cd category-management-service
 ```
 
